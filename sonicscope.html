@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Sonic Scope - Audio Engine</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;display=swap" rel="stylesheet"/>
+
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script>
+        window.tailwind = window.tailwind || {};
+        window.tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-fixed": "#2ff801",
+                        "on-primary": "#004a5d",
+                        "surface-container-highest": "#262626",
+                        "on-primary-fixed": "#002a35",
+                        "tertiary-fixed": "#95adff",
+                        "secondary-fixed-dim": "#2be800",
+                        "on-primary-container": "#004050",
+                        "primary-fixed": "#00cffc",
+                        "primary-container": "#00cffc",
+                        "on-tertiary-fixed-variant": "#00318e",
+                        "on-background": "#ffffff",
+                        "background": "#0e0e0e",
+                        "on-surface-variant": "#adaaaa",
+                        "on-tertiary-fixed": "#001345",
+                        "on-error-container": "#ffa8a3",
+                        "secondary-dim": "#2be800",
+                        "surface-container-low": "#131313",
+                        "on-secondary": "#0b5800",
+                        "primary": "#69daff",
+                        "error-dim": "#d7383b",
+                        "surface-container": "#1a1a1a",
+                        "inverse-primary": "#006880",
+                        "primary-fixed-dim": "#00c0ea",
+                        "error": "#ff716c",
+                        "tertiary-dim": "#7999ff",
+                        "surface-dim": "#0e0e0e",
+                        "surface": "#0e0e0e",
+                        "on-secondary-fixed": "#064200",
+                        "secondary-container": "#106e00",
+                        "tertiary": "#89a5ff",
+                        "on-secondary-fixed-variant": "#0d6200",
+                        "surface-variant": "#262626",
+                        "surface-bright": "#2c2c2c",
+                        "tertiary-container": "#7696fd",
+                        "secondary": "#2ff801",
+                        "error-container": "#9f0519",
+                        "inverse-on-surface": "#565555",
+                        "on-tertiary": "#00236d",
+                        "surface-container-lowest": "#000000",
+                        "surface-tint": "#69daff",
+                        "surface-container-high": "#20201f",
+                        "on-secondary-container": "#e7ffd9",
+                        "outline-variant": "#484847",
+                        "tertiary-fixed-dim": "#819fff",
+                        "primary-dim": "#00c0ea",
+                        "inverse-surface": "#fcf9f8",
+                        "on-tertiary-container": "#001851",
+                        "on-error": "#490006",
+                        "outline": "#767575",
+                        "on-surface": "#ffffff",
+                        "on-primary-fixed-variant": "#004a5c"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Space Grotesk"]
+                    }
+                },
+            },
+        }
+    </script>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+        .glass-panel {
+            backdrop-filter: blur(20px);
+            background: rgba(38, 38, 38, 0.8);
+        }
+        .oscilloscope-glow {
+            filter: drop-shadow(0 0 4px rgba(105, 218, 255, 0.3));
+        }
+        .milled-inset {
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+      input[type=range] { -webkit-appearance: none; appearance: none; background: transparent; cursor: pointer; }
+  input[type=range]::-webkit-slider-runnable-track { height: 8px; background: #262626; border-radius: 9999px; }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none; appearance: none;
+    width: 12px; height: 20px; background: white; border-radius: 2px;
+    margin-top: -6px; box-shadow: 0 2px 8px rgba(0,0,0,0.6);
+    border: 1px solid rgba(255,255,255,0.1);
+  }
+  input[type=range]::-moz-range-track { height: 8px; background: #262626; border-radius: 9999px; }
+  input[type=range]::-moz-range-thumb {
+    width: 12px; height: 20px; background: white; border-radius: 2px;
+    border: 1px solid rgba(255,255,255,0.1); cursor: pointer;
+  }
+  .waveform-btn.active { background: #262626; border: 1px solid rgba(105,218,255,0.3); }
+  .waveform-btn.active span { color: #69daff; }
+  .waveform-btn:not(.active) { background: #131313; border: 1px solid transparent; }
+  .waveform-btn:not(.active) span { color: #adaaaa; }
+  .dropzone-active { border-color: rgba(105,218,255,0.5) !important; background: rgba(105,218,255,0.05); }
+</style>
+</head>
+<body class="bg-background text-on-background font-body overflow-hidden">
+<div class="flex h-screen w-full">
+<!-- SideNavBar -->
+<aside class="h-screen w-64 left-0 sticky bg-[#131313] flex flex-col py-6 shadow-[0_12px_24px_rgba(0,0,0,0.4)] z-20">
+<div class="px-8 mb-12">
+<div class="text-lg font-black text-[#00D1FF] font-headline tracking-tighter">ENGINE</div>
+<div class="font-['Space_Grotesk'] text-[10px] font-medium uppercase tracking-[0.2em] text-[#adaaaa]">V1.0.4-BETA</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center px-8 py-4 font-['Space_Grotesk'] text-xs font-medium uppercase tracking-widest text-[#00D1FF] border-r-2 border-[#00D1FF] hover:bg-[#20201f] transition-all" href="#">
+<span class="material-symbols-outlined mr-4" style="font-variation-settings: 'FILL' 1;">analytics</span>
+                    Analyzer
+                </a>
+<a class="flex items-center px-8 py-4 font-['Space_Grotesk'] text-xs font-medium uppercase tracking-widest text-[#adaaaa] hover:bg-[#20201f] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-4">edit_note</span>
+                    Editor
+                </a>
+<a class="flex items-center px-8 py-4 font-['Space_Grotesk'] text-xs font-medium uppercase tracking-widest text-[#adaaaa] hover:bg-[#20201f] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-4">library_music</span>
+                    Library
+                </a>
+<a class="flex items-center px-8 py-4 font-['Space_Grotesk'] text-xs font-medium uppercase tracking-widest text-[#adaaaa] hover:bg-[#20201f] hover:text-white transition-all" href="#">
+<span class="material-symbols-outlined mr-4">history</span>
+                    History
+                </a>
+</nav>
+<div class="px-8 mt-auto pt-6 border-t border-outline-variant/10">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-surface-container-highest rounded-sm flex items-center justify-center">
+<span class="material-symbols-outlined text-sm text-primary">person</span>
+</div>
+<div class="text-[10px] font-headline tracking-widest text-on-surface-variant uppercase">Operator_01</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- TopAppBar -->
+<header class="w-full top-0 sticky bg-[#0e0e0e] flex justify-between items-center px-8 py-4 z-10">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#00D1FF] font-headline uppercase">Sonic Scope</span>
+<!-- Mode Selector -->
+<div class="flex bg-surface-container-low p-1 rounded-sm">
+<button id="btn-mode-file" class="px-4 py-1.5 text-[10px] font-headline font-bold tracking-widest uppercase bg-surface-container-high text-primary rounded-sm transition-colors">Audio File</button>
+<button id="btn-mode-gen" class="px-4 py-1.5 text-[10px] font-headline font-medium tracking-widest uppercase text-on-surface-variant hover:text-white transition-colors">Wave Generator</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#adaaaa] hover:text-[#69daff] transition-colors">settings</button>
+<button class="material-symbols-outlined text-[#adaaaa] hover:text-[#69daff] transition-colors">help</button>
+</div>
+</header>
+<!-- Dashboard Grid -->
+<div class="flex-1 p-8 grid grid-cols-12 grid-rows-6 gap-6 overflow-hidden">
+<!-- Visualization Window (Source of Truth) -->
+<section class="col-span-8 row-span-4 bg-surface-container-lowest rounded-sm border-none relative overflow-hidden milled-inset">
+<div class="absolute top-4 left-6 z-10 flex gap-4">
+<div class="flex items-center gap-2">
+<span id="signal-dot" class="w-2 h-2 rounded-full bg-on-surface-variant"></span>
+<span id="signal-label" class="text-[10px] font-headline tracking-tighter text-on-surface-variant uppercase">Signal Idle</span>
+</div>
+<div class="text-[10px] font-headline tracking-tighter text-on-surface-variant uppercase">Scope_Live_Feed</div>
+</div>
+<!-- Oscilloscope View -->
+<div class="w-full h-full flex items-center justify-center p-12">
+<svg id="oscilloscope-svg" class="w-full h-full oscilloscope-glow" viewBox="0 0 800 400" preserveAspectRatio="none">
+<!-- Grid -->
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="0" x2="800" y1="200" y2="200"/>
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="400" x2="400" y1="0" y2="400"/>
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="0" x2="800" y1="100" y2="100"/>
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="0" x2="800" y1="300" y2="300"/>
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="200" x2="200" y1="0" y2="400"/>
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="600" x2="600" y1="0" y2="400"/>
+<path id="scope-path" d="M0 200 L800 200" fill="none" stroke="#69daff" stroke-width="1.5"/>
+<!-- Grid Overlay -->
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="0" x2="800" y1="200" y2="200"></line>
+<line stroke="#484847" stroke-dasharray="4" stroke-width="0.5" x1="400" x2="400" y1="0" y2="400"></line>
+</svg>
+</div>
+<!-- Spectrum Base Labels -->
+<div class="absolute bottom-4 w-full px-6 flex justify-between text-[8px] font-headline text-on-surface-variant/50 tracking-widest uppercase">
+<span>20Hz</span>
+<span>100Hz</span>
+<span>1kHz</span>
+<span>5kHz</span>
+<span>20kHz</span>
+</div>
+</section>
+<!-- Input Controls Pod -->
+<aside class="col-span-4 row-span-4 flex flex-col gap-6">
+<!-- Wave Generator Controls (Active State Logic) -->
+<div class="flex-1 bg-surface-container-high p-6 rounded-sm shadow-[0_12px_24px_rgba(0,0,0,0.4)]">
+<div class="text-[10px] font-headline font-bold tracking-[0.2em] text-on-surface-variant uppercase mb-8 border-b border-outline-variant/10 pb-2">Generator Engine</div>
+<!-- Wave Type Toggles -->
+<div class="space-y-6">
+<div>
+<label class="text-[9px] font-headline text-on-surface-variant uppercase tracking-widest block mb-3">Waveform Topology</label>
+<div class="grid grid-cols-3 gap-2">
+<button class="waveform-btn active flex flex-col items-center justify-center py-4 rounded-sm group transition-all" data-wave="sine"><span class="material-symbols-outlined mb-1">waves</span><span class="text-[8px] font-headline uppercase">Sine</span></button>
+<button class="waveform-btn flex flex-col items-center justify-center py-4 rounded-sm group transition-all" data-wave="square"><span class="material-symbols-outlined mb-1">rectangle</span><span class="text-[8px] font-headline uppercase">Square</span></button>
+<button class="waveform-btn flex flex-col items-center justify-center py-4 rounded-sm group transition-all" data-wave="sawtooth"><span class="material-symbols-outlined mb-1">signal_cellular_0_bar</span><span class="text-[8px] font-headline uppercase">Sawtooth</span></button>
+</div>
+</div>
+<!-- Frequency Slider -->
+<div>
+<div class="flex justify-between items-center mb-3">
+<label class="text-[9px] font-headline text-on-surface-variant uppercase tracking-widest">Base Frequency</label>
+<span id="freq-display" class="text-xs font-headline font-bold text-primary tracking-tighter">440.00 Hz</span>
+</div>
+<input id="freq-slider" type="range" min="0" max="1" step="0.001" value="0.447474" class="w-full h-2"/>
+<div class="flex justify-between mt-2 text-[8px] font-headline text-on-surface-variant/40">
+<span>20 HZ</span>
+<span>2.5 KHZ</span>
+<span>20 KHZ</span>
+</div>
+</div>
+
+</div>
+</div>
+<!-- Audio File Dropzone (Secondary Mode Preview) -->
+<div id="dropzone" class="h-32 bg-surface-container-low p-4 rounded-sm border border-dashed border-outline-variant/30 flex flex-col items-center justify-center group cursor-pointer hover:border-primary/50 transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-primary transition-colors mb-2">upload_file</span>
+<div id="dropzone-label" class="text-[9px] font-headline text-on-surface-variant uppercase tracking-widest">Load External PCM</div>
+<div class="text-[8px] font-headline text-on-surface-variant/40 uppercase tracking-widest mt-1">WAV · AIFF · FLAC · MP3</div>
+<input id="file-input" type="file" accept="audio/*" class="hidden"/>
+</div>
+</aside>
+<!-- Spectrum Analyzer Pod -->
+<section class="col-span-12 row-span-2 bg-surface-container-low p-6 rounded-sm flex flex-col">
+<div class="flex justify-between items-center mb-4">
+<div class="text-[10px] font-headline font-bold tracking-[0.2em] text-on-surface-variant uppercase">Spectrum_Analysis_Realtime</div>
+<div class="flex gap-2">
+<span class="px-2 py-0.5 text-[8px] bg-primary/10 text-primary font-headline uppercase rounded-sm">FFT: 4096</span>
+<span id="peak-badge" class="px-2 py-0.5 text-[8px] bg-surface-container-highest text-on-surface-variant font-headline uppercase rounded-sm">Peak: — dB</span>
+</div>
+</div>
+<div id="spectrum-bars" class="flex-1 flex items-end gap-[2px]">
+</div>
+</section>
+</div>
+<!-- Bottom Transport Bar -->
+<footer class="w-full h-20 bg-[#131313] px-8 flex items-center justify-between z-10 border-t border-outline-variant/5">
+<div class="flex items-center gap-12">
+<!-- Transport Controls -->
+<div class="flex items-center gap-4">
+<button id="btn-rewind" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">fast_rewind</button>
+<button id="btn-play" class="w-10 h-10 flex items-center justify-center bg-primary text-on-primary rounded-sm hover:bg-primary-container transition-all"><span id="play-icon" class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">play_arrow</span></button>
+<button id="btn-stop" class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">stop</button>
+<button class="material-symbols-outlined text-on-surface-variant hover:text-white transition-colors">fast_forward</button>
+</div>
+<!-- Metrics -->
+<div class="flex gap-8">
+<div>
+<div class="text-[8px] font-headline text-on-surface-variant uppercase tracking-widest mb-1">Time Elapsed</div>
+<div id="time-display" class="text-sm font-headline font-bold text-white tracking-tighter">00:00.000</div>
+</div>
+<div>
+<div class="text-[8px] font-headline text-on-surface-variant uppercase tracking-widest mb-1">Peak Level</div>
+<div id="peak-display" class="text-sm font-headline font-bold text-secondary tracking-tighter">— dB</div>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-6">
+<!-- System Dropdowns -->
+<div class="flex gap-3">
+<div class="flex flex-col">
+<label class="text-[8px] font-headline text-on-surface-variant uppercase tracking-[0.2em] mb-1">Sample Rate</label>
+<div class="relative">
+<select id="sel-samplerate" class="appearance-none bg-surface-container-highest text-[10px] font-headline text-white px-3 py-1 pr-8 rounded-sm border-none focus:ring-1 focus:ring-primary uppercase tracking-widest"><option value="48000">48.0 kHz</option><option value="96000">96.0 kHz</option><option value="192000">192.0 kHz</option></select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none">expand_more</span>
+</div>
+</div>
+<div class="flex flex-col">
+<label class="text-[8px] font-headline text-on-surface-variant uppercase tracking-[0.2em] mb-1">Bit Depth</label>
+<div class="relative">
+<select id="sel-bitdepth" class="appearance-none bg-surface-container-highest text-[10px] font-headline text-white px-3 py-1 pr-8 rounded-sm border-none focus:ring-1 focus:ring-primary uppercase tracking-widest"><option value="24">24-Bit Float</option><option value="32">32-Bit Float</option></select>
+<span class="material-symbols-outlined absolute right-2 top-1/2 -translate-y-1/2 text-[12px] pointer-events-none">expand_more</span>
+</div>
+</div>
+</div>
+
+</div>
+</footer>
+</main>
+</div>
+
+<script id="worklet-src" type="text/worklet-processor">
+class QuantizeProcessor extends AudioWorkletProcessor {
+  static get parameterDescriptors() {
+    return [{ name: 'bits', defaultValue: 32, minValue: 8, maxValue: 32 }];
+  }
+  process(inputs, outputs, parameters) {
+    const input  = inputs[0];
+    const output = outputs[0];
+    const bits   = parameters.bits[0] ?? 32;
+    const steps  = Math.pow(2, bits - 1);
+    for (let ch = 0; ch < input.length; ch++) {
+      const inBuf  = input[ch];
+      const outBuf = output[ch];
+      if (!inBuf) continue;
+      for (let i = 0; i < inBuf.length; i++) {
+        outBuf[i] = Math.round(inBuf[i] * steps) / steps;
+      }
+    }
+    return true;
+  }
+}
+registerAudioWorklet('quantize-processor', QuantizeProcessor);
+</script>
+
+<script>
+'use strict';
+
+const workletSrc  = document.getElementById('worklet-src').textContent;
+const workletBlob = new Blob([workletSrc], { type: 'application/javascript' });
+const workletURL  = URL.createObjectURL(workletBlob);
+
+const state = {
+  mode: 'file', playing: false,
+  sampleRate: 48000, bitDepth: 24,
+  waveform: 'sine', frequency: 440, volume: -12,
+  audioCtx: null, analyser: null, gainNode: null,
+  quantizeNode: null, oscillator: null,
+  bufferSource: null, audioBuffer: null,
+  startTime: 0, pauseOffset: 0,
+  timerRAF: null, peakMax: -Infinity,
+};
+
+// Build spectrum bars
+const NUM_BARS = 64;
+const spectrumContainer = document.getElementById('spectrum-bars');
+const bars = [];
+(function() {
+  for (let i = 0; i < NUM_BARS; i++) {
+    const b = document.createElement('div');
+    b.style.cssText = 'flex:1;height:4%;background:#262626;border-radius:1px 1px 0 0;';
+    spectrumContainer.appendChild(b);
+    bars.push(b);
+  }
+})();
+
+// DOM refs
+const btnModeFile  = document.getElementById('btn-mode-file');
+const btnModeGen   = document.getElementById('btn-mode-gen');
+const btnPlay      = document.getElementById('btn-play');
+const playIcon     = document.getElementById('play-icon');
+const btnStop      = document.getElementById('btn-stop');
+const btnRewind    = document.getElementById('btn-rewind');
+const freqSlider   = document.getElementById('freq-slider');
+const freqDisplay  = document.getElementById('freq-display');
+const selSampleRate= document.getElementById('sel-samplerate');
+const selBitDepth  = document.getElementById('sel-bitdepth');
+const timeDisplay  = document.getElementById('time-display');
+const peakDisplay  = document.getElementById('peak-display');
+const peakBadge    = document.getElementById('peak-badge');
+const signalDot    = document.getElementById('signal-dot');
+const signalLabel  = document.getElementById('signal-label');
+const dropzone     = document.getElementById('dropzone');
+const dropzoneLabel= document.getElementById('dropzone-label');
+const fileInput    = document.getElementById('file-input');
+const scopePath    = document.getElementById('scope-path');
+const waveformBtns = document.querySelectorAll('.waveform-btn');
+
+// Helpers
+function dbToLinear(db) { return Math.pow(10, db / 20); }
+function linearToDb(v)  { return v <= 0 ? -Infinity : 20 * Math.log10(v); }
+function sliderToFreq(v){ return 20 * Math.pow(1000, parseFloat(v)); }
+function formatTime(s) {
+  if (!isFinite(s) || s < 0) s = 0;
+  const m = Math.floor(s/60), sec = Math.floor(s%60), ms = Math.floor((s%1)*1000);
+  return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}.${String(ms).padStart(3,'0')}`;
+}
+function setSignalActive(on) {
+  if (on) {
+    signalDot.className = 'w-2 h-2 rounded-full bg-secondary animate-pulse';
+    signalLabel.textContent = 'Signal Active';
+    signalLabel.className = 'text-[10px] font-headline tracking-tighter text-secondary uppercase';
+  } else {
+    signalDot.className = 'w-2 h-2 rounded-full bg-on-surface-variant';
+    signalLabel.textContent = 'Signal Idle';
+    signalLabel.className = 'text-[10px] font-headline tracking-tighter text-on-surface-variant uppercase';
+  }
+}
+
+// AudioContext init
+async function initAudioContext() {
+  if (state.audioCtx) { await state.audioCtx.close(); state.audioCtx = null; }
+  const ctx = new AudioContext({ sampleRate: state.sampleRate, latencyHint: 'playback' });
+  await ctx.audioWorklet.addModule(workletURL);
+
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 4096;
+  analyser.smoothingTimeConstant = 0.8;
+  analyser.minDecibels = -90;
+  analyser.maxDecibels = -10;
+
+  const gain = ctx.createGain();
+  gain.gain.value = dbToLinear(state.volume);
+
+  const quantize = new AudioWorkletNode(ctx, 'quantize-processor');
+  quantize.parameters.get('bits').value = state.bitDepth;
+
+  quantize.connect(gain);
+  gain.connect(analyser);
+  analyser.connect(ctx.destination);
+
+  state.audioCtx = ctx; state.analyser = analyser;
+  state.gainNode = gain; state.quantizeNode = quantize;
+  state.peakMax = -Infinity;
+}
+
+// Draw loop
+const timeBuf = new Float32Array(4096);
+const freqBuf = new Float32Array(4096);
+
+function drawLoop() {
+  requestAnimationFrame(drawLoop);
+  if (!state.analyser) return;
+
+  // Oscilloscope
+  state.analyser.getFloatTimeDomainData(timeBuf);
+  let start = 0;
+  for (let i = 1; i < timeBuf.length - 1; i++) {
+    if (timeBuf[i-1] < 0 && timeBuf[i] >= 0) { start = i; break; }
+  }
+  const displayN = Math.min(timeBuf.length - start, 2048);
+  let d = '';
+  for (let i = 0; i < displayN; i++) {
+    const x = (i / displayN) * 800;
+    const y = 200 - timeBuf[start + i] * 185;
+    d += (i === 0 ? `M${x.toFixed(1)} ${y.toFixed(1)}` : ` L${x.toFixed(1)} ${y.toFixed(1)}`);
+  }
+  scopePath.setAttribute('d', d || 'M0 200 L800 200');
+
+  // Peak
+  let peak = 0;
+  for (let i = 0; i < timeBuf.length; i++) { const a = Math.abs(timeBuf[i]); if (a > peak) peak = a; }
+  if (peak > 0) {
+    const db = linearToDb(peak);
+    if (db > state.peakMax) state.peakMax = db;
+    peakDisplay.textContent = `${db.toFixed(1)} dB`;
+    peakDisplay.style.color = db > -3 ? '#ff716c' : '#2ff801';
+    peakBadge.textContent = `Peak: ${state.peakMax.toFixed(1)}dB`;
+  }
+
+  // Spectrum
+  state.analyser.getFloatFrequencyData(freqBuf);
+  const binCount = state.analyser.frequencyBinCount;
+  const bpp = Math.floor(binCount / NUM_BARS);
+  for (let b = 0; b < NUM_BARS; b++) {
+    let sum = 0;
+    for (let k = 0; k < bpp; k++) sum += freqBuf[b * bpp + k];
+    const avg = sum / bpp;
+    const norm = Math.max(0, Math.min(1,
+      (avg - state.analyser.minDecibels) / (state.analyser.maxDecibels - state.analyser.minDecibels)
+    ));
+    const h = Math.max(2, norm * 100);
+    bars[b].style.height = `${h.toFixed(1)}%`;
+    if (norm > 0.75) {
+      bars[b].style.background = '#69daff';
+      bars[b].style.boxShadow  = '0 0 10px rgba(105,218,255,0.4)';
+    } else if (norm > 0.4) {
+      bars[b].style.background = `rgba(105,218,255,${(norm * 0.8).toFixed(2)})`;
+      bars[b].style.boxShadow  = 'none';
+    } else {
+      bars[b].style.background = '#262626';
+      bars[b].style.boxShadow  = 'none';
+    }
+  }
+}
+
+// Timer
+function startTimer() {
+  (function tick() {
+    if (!state.playing) return;
+    timeDisplay.textContent = formatTime(state.pauseOffset + (state.audioCtx.currentTime - state.startTime));
+    state.timerRAF = requestAnimationFrame(tick);
+  })();
+}
+
+// Generator playback
+async function startGenerator() {
+  if (!state.audioCtx) await initAudioContext();
+  if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+  if (state.oscillator) { try { state.oscillator.stop(); } catch(_){} state.oscillator.disconnect(); state.oscillator = null; }
+  const osc = state.audioCtx.createOscillator();
+  osc.type = state.waveform;
+  osc.frequency.value = state.frequency;
+  osc.connect(state.quantizeNode);
+  osc.start();
+  state.oscillator = osc;
+  state.startTime = state.audioCtx.currentTime;
+  state.playing = true;
+  setSignalActive(true);
+  startTimer();
+}
+function stopGenerator() {
+  if (state.oscillator) { try { state.oscillator.stop(); } catch(_){} state.oscillator.disconnect(); state.oscillator = null; }
+  state.pauseOffset += state.audioCtx ? (state.audioCtx.currentTime - state.startTime) : 0;
+  state.playing = false;
+  setSignalActive(false);
+  cancelAnimationFrame(state.timerRAF);
+}
+
+// File playback
+async function startFile(offset = 0) {
+  if (!state.audioBuffer) return;
+  if (!state.audioCtx) await initAudioContext();
+  if (state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+  if (state.bufferSource) { try { state.bufferSource.stop(); } catch(_){} state.bufferSource.disconnect(); state.bufferSource = null; }
+  const src = state.audioCtx.createBufferSource();
+  src.buffer = state.audioBuffer;
+  src.connect(state.quantizeNode);
+  src.start(0, offset);
+  src.onended = () => {
+    if (state.playing) {
+      state.playing = false; setSignalActive(false);
+      cancelAnimationFrame(state.timerRAF);
+      playIcon.textContent = 'play_arrow';
+      state.pauseOffset = 0;
+      timeDisplay.textContent = formatTime(0);
+    }
+  };
+  state.bufferSource = src;
+  state.startTime = state.audioCtx.currentTime;
+  state.playing = true;
+  setSignalActive(true);
+  startTimer();
+}
+function stopFile() {
+  if (state.bufferSource) { try { state.bufferSource.stop(); } catch(_){} state.bufferSource.disconnect(); state.bufferSource = null; }
+  state.pauseOffset += state.audioCtx ? (state.audioCtx.currentTime - state.startTime) : 0;
+  state.playing = false; setSignalActive(false);
+  cancelAnimationFrame(state.timerRAF);
+}
+
+// Transport
+btnPlay.addEventListener('click', async () => {
+  if (state.audioCtx && state.audioCtx.state === 'suspended') await state.audioCtx.resume();
+  if (!state.playing) {
+    playIcon.textContent = 'pause';
+    state.mode === 'generator' ? await startGenerator() : await startFile(state.pauseOffset);
+  } else {
+    playIcon.textContent = 'play_arrow';
+    state.mode === 'generator' ? stopGenerator() : stopFile();
+    if (state.audioCtx) await state.audioCtx.suspend();
+  }
+});
+
+btnStop.addEventListener('click', async () => {
+  playIcon.textContent = 'play_arrow';
+  state.mode === 'generator' ? stopGenerator() : stopFile();
+  state.pauseOffset = 0; state.peakMax = -Infinity;
+  timeDisplay.textContent = formatTime(0);
+  peakDisplay.textContent = '— dB'; peakBadge.textContent = 'Peak: — dB';
+  if (state.audioCtx) await state.audioCtx.suspend();
+});
+
+btnRewind.addEventListener('click', async () => {
+  const was = state.playing;
+  state.mode === 'generator' ? stopGenerator() : stopFile();
+  state.pauseOffset = 0; timeDisplay.textContent = formatTime(0);
+  if (was) {
+    playIcon.textContent = 'pause';
+    state.mode === 'generator' ? await startGenerator() : await startFile(0);
+  } else { playIcon.textContent = 'play_arrow'; }
+});
+
+// Mode
+function setMode(mode) {
+  state.mode = mode;
+  if (state.playing) btnStop.click();
+  if (mode === 'generator') {
+    btnModeFile.className = 'px-4 py-1.5 text-[10px] font-headline font-medium tracking-widest uppercase text-on-surface-variant hover:text-white transition-colors';
+    btnModeGen.className  = 'px-4 py-1.5 text-[10px] font-headline font-bold tracking-widest uppercase bg-surface-container-high text-primary rounded-sm transition-colors';
+  } else {
+    btnModeGen.className  = 'px-4 py-1.5 text-[10px] font-headline font-medium tracking-widest uppercase text-on-surface-variant hover:text-white transition-colors';
+    btnModeFile.className = 'px-4 py-1.5 text-[10px] font-headline font-bold tracking-widest uppercase bg-surface-container-high text-primary rounded-sm transition-colors';
+  }
+}
+btnModeFile.addEventListener('click', () => setMode('file'));
+btnModeGen.addEventListener('click',  () => setMode('generator'));
+
+// Waveform
+waveformBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    waveformBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.waveform = btn.dataset.wave;
+    if (state.oscillator) state.oscillator.type = state.waveform;
+  });
+});
+
+// Frequency
+freqSlider.addEventListener('input', () => {
+  const freq = sliderToFreq(freqSlider.value);
+  state.frequency = freq;
+  freqDisplay.textContent = freq >= 1000 ? `${(freq/1000).toFixed(2)} kHz` : `${freq.toFixed(2)} Hz`;
+  if (state.oscillator) state.oscillator.frequency.setTargetAtTime(freq, state.audioCtx.currentTime, 0.01);
+});
+
+// Sample Rate
+selSampleRate.addEventListener('change', async () => {
+  const was = state.playing;
+  const offset = state.pauseOffset + (state.playing && state.audioCtx ? state.audioCtx.currentTime - state.startTime : 0);
+  state.mode === 'generator' ? stopGenerator() : stopFile();
+  state.sampleRate = parseInt(selSampleRate.value);
+  state.pauseOffset = 0; playIcon.textContent = 'play_arrow';
+  await initAudioContext();
+  if (was) { playIcon.textContent = 'pause'; state.mode === 'generator' ? await startGenerator() : await startFile(offset); }
+});
+
+// Bit Depth
+selBitDepth.addEventListener('change', () => {
+  state.bitDepth = parseInt(selBitDepth.value);
+  if (state.quantizeNode) state.quantizeNode.parameters.get('bits').value = state.bitDepth;
+});
+
+// File loading
+async function loadAudioFile(file) {
+  if (!file) return;
+  dropzoneLabel.textContent = 'Decoding...';
+  try {
+    const tempCtx = new AudioContext({ sampleRate: state.sampleRate });
+    const buf = await file.arrayBuffer();
+    state.audioBuffer = await tempCtx.decodeAudioData(buf);
+    await tempCtx.close();
+    dropzoneLabel.textContent = file.name.length > 24 ? file.name.substring(0,22)+'…' : file.name;
+  } catch(err) {
+    console.error(err);
+    dropzoneLabel.textContent = 'Decode Error — Retry';
+  }
+}
+dropzone.addEventListener('click', () => fileInput.click());
+fileInput.addEventListener('change', e => { if (e.target.files[0]) loadAudioFile(e.target.files[0]); });
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('dropzone-active'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dropzone-active'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('dropzone-active');
+  if (e.dataTransfer.files[0]) loadAudioFile(e.dataTransfer.files[0]);
+});
+
+// Init
+drawLoop();
+(async () => {
+  await initAudioContext();
+  if (state.audioCtx.state !== 'suspended') await state.audioCtx.suspend();
+})();
+</script>
+
+</body></html>
